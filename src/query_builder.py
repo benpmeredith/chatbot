@@ -8,11 +8,12 @@ import logging
 from s2t import speech2text
 from nsv_query import Query
 
-logging.getLogger(__name__).setLevel(logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
 class QueryBuilder:
+    # TODO: These lists need to be made exhaustive for our target subjects and verbs
     known_subjects = ["child", "son", "daughter", "nephew", "grandson", "granddaughter", "niece"]
     known_verbs = ["bully"]
     male_subjects = ["son", "nephew", "grandson"]
@@ -27,34 +28,29 @@ class QueryBuilder:
         self.recognizer = recognizer
         self.source = source
 
-    def form_query(self, sentence=None):
-        known_subjects = ["child", "son", "daughter", "nephew", "grandson", "granddaughter", "niece"]
-        known_verbs = ["bully"]
-        male_subjects = ["son", "nephew", "grandson"]
-        female_subjects = ["daughter", "niece", "granddaughter"]
-
-        lemmatizer = Lemmatizer(LEMMA_INDEX, LEMMA_EXC, LEMMA_RULES)
-
+    def form_query(self, sentence):
         doc = self.nlp(sentence)
 
+        # Find all the noun subjects and figure out if they are possessive
         noun_subjects = []
         for chunk in doc.noun_chunks:
             poss = False
-            noun_subject = lemmatizer(chunk.root.text, u"NOUN")[0]
+            noun_subject = self.lemmatizer(chunk.root.text, u"NOUN")[0]
             for child in chunk.root.children:
                 if "poss" in child.dep_:
                     poss = child.text
             noun_subjects.append((noun_subject, poss))
         print(noun_subjects)
 
-        root_verbs = [lemmatizer(token.head.text, u"VERB")[0] for token in doc if
+        # Find the root verb in the sentence
+        root_verbs = [self.lemmatizer(token.head.text, u"VERB")[0] for token in doc if
                       token.dep_ == "ROOT" and token.head.pos_ == "VERB"]
         print(root_verbs)
 
         q = Query(self.engine, self.recognizer, self.source)
 
         for ns, poss in noun_subjects:
-            if ns in known_subjects:
+            if ns in self.known_subjects:
                 q.subject = ns
                 q.subject_poss = poss
                 break
@@ -63,14 +59,14 @@ class QueryBuilder:
                 return
 
         for ns, _ in noun_subjects:
-            if ns in male_subjects:
+            if ns in self.male_subjects:
                 q.subject_gender = "male"
-            elif ns in female_subjects:
+            elif ns in self.female_subjects:
                 q.subject_gender = "female"
                 break
 
         for verb in root_verbs:
-            if verb in known_verbs:
+            if verb in self.known_verbs:
                 q.verb = verb
                 break
 
@@ -84,8 +80,8 @@ def main():
     with sr.Microphone() as source:
         recognizer.adjust_for_ambient_noise(source)
         qb = QueryBuilder(recognizer, source)
-        initial_sentence = speech2text(recognizer, source)
-        # initial_sentence = "My nephew is being bullied"
+        # initial_sentence = speech2text(recognizer, source)
+        initial_sentence = "My nephew is being bullied"
         qb.form_query(initial_sentence)
 
 

@@ -1,4 +1,9 @@
 from s2t import speech2text
+import speech_recognition as sr
+import logging
+
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 
 class Query:
@@ -35,7 +40,10 @@ class Query:
     def get_age(self):
         self.engine.say(f"What is {self.invert_poss(self.subject_poss)} {self.subject}'s age?")
         self.engine.runAndWait()
-        self.subject_age = int(speech2text(self.recognizer, self.source))
+        try:
+            self.subject_age = int(speech2text(self.recognizer, self.source))
+        except sr.UnknownValueError:
+            logger.info("Unable to understand age")
 
     def __str__(self):
         return f"{self.subject}, {self.verb}, {self.subject_age}, {self.subject_gender}, {self.subject_grade}, " \
